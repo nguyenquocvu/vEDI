@@ -1,0 +1,21 @@
+﻿Installing assembly 'D:\SOURCE\vEDI\INSTALL\EdiJST.exe'.
+Affected parameters are:
+   logtoconsole = 
+   logfile = D:\SOURCE\vEDI\INSTALL\EdiJST.InstallLog
+   assemblypath = D:\SOURCE\vEDI\INSTALL\EdiJST.exe
+Installing service EdiJST...
+Service EdiJST has been successfully installed.
+Creating EventLog source EdiJST in log Application...
+Committing assembly 'D:\SOURCE\vEDI\INSTALL\EdiJST.exe'.
+Affected parameters are:
+   logtoconsole = 
+   logfile = D:\SOURCE\vEDI\INSTALL\EdiJST.InstallLog
+   assemblypath = D:\SOURCE\vEDI\INSTALL\EdiJST.exe
+Uninstalling assembly 'D:\SOURCE\vEDI\INSTALL\EdiJST.exe'.
+Affected parameters are:
+   logtoconsole = 
+   logfile = D:\SOURCE\vEDI\INSTALL\EdiJST.InstallLog
+   assemblypath = D:\SOURCE\vEDI\INSTALL\EdiJST.exe
+Removing EventLog source EdiJST.
+Service EdiJST is being removed from the system...
+Service EdiJST was successfully removed from the system.
