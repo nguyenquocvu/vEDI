@@ -172,22 +172,52 @@ namespace EET
             }
             return bret;
         }
+        private string GetPartFromID(string sID, string part)
+        {
+            string sret = "";
+            string stemp = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(0, sID.Length - 1) : sID;
+            string[] arr = stemp.Split(new string[] { "___" }, StringSplitOptions.None);
+
+            switch (part)
+            {
+                case "ORDERID":
+                    if (arr.Length == 2)
+                    {
+                        sret = arr[0];
+                    }
+                    break;
+                case "STATUS":
+                    sret = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(sID.Length - 1, 1) : "I";
+                    break;
+                case "REFNO":
+                    if (arr.Length == 2)
+                    {
+                        sret = arr[1];
+                    }
+                    break;
+            }
+            return sret;
+        }
         public void UpdateEDI(string sID)
         {
             try
             {
-                string orderid = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(0, sID.Length - 1) : sID;
+                string orderid = GetPartFromID(sID, "ORDERID");
+                string status = GetPartFromID(sID, "STATUS");
 
-                string storedProcName = "UpdateEDI";
-                using (DbCommand sprocCmd = defaultDB.GetStoredProcCommand(storedProcName))
+                if (status != "D")
                 {
-                    defaultDB.AddInParameter(sprocCmd, "OrderID", DbType.String, orderid);
-                    defaultDB.ExecuteReader(sprocCmd);
+                    string storedProcName = "UpdateEDI";
+                    using (DbCommand sprocCmd = defaultDB.GetStoredProcCommand(storedProcName))
+                    {
+                        defaultDB.AddInParameter(sprocCmd, "OrderID", DbType.String, orderid);
+                        defaultDB.ExecuteReader(sprocCmd);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Log.Report(ex.Message);
+                Log.Report(ex);
             }
         }
         private void WorkWithOldFiles()
@@ -216,10 +246,16 @@ namespace EET
             try
             {
                 string xml = GetXML(sID);
-                string fptfile = m_ediparams.EDIFPT + (m_ediparams.EDIFPT.EndsWith("/") ? "" : "/") + sID.Trim() + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".xml";
+
+                string orderid = GetPartFromID(sID, "ORDERID");
+                string status = GetPartFromID(sID, "STATUS");
+                string ediname = orderid.Trim() + status.Trim();
+
+
+                string fptfile = m_ediparams.EDIFPT + (m_ediparams.EDIFPT.EndsWith("/") ? "" : "/") + ediname + "_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".xml";
                 if (m_LogLevel == 888)
                 {
-                    bret = ByteArrayToFile(xml, sID);
+                    bret = ByteArrayToFile(xml, ediname);
                 }
                 else
                 {
@@ -232,71 +268,172 @@ namespace EET
             }
             return bret;
         }
+        //private string GetXML(string sID)
+        //{
+        //    string xml = "";
+        //    try
+        //    {
+        //        string orderid = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(0, sID.Length - 1) : sID;
+        //        string status = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(sID.Length - 1, 1) : "I";
+        //        string storedProcName = "SelectOrderImportInfo";
+        //        using (DbCommand sprocCmd = defaultDB.GetStoredProcCommand(storedProcName))
+        //        {
+        //            defaultDB.AddInParameter(sprocCmd, "OrderID", DbType.String, orderid);
+        //            using (IDataReader rdr = defaultDB.ExecuteReader(sprocCmd))
+        //            {
+        //                while (rdr.Read())
+        //                {
+        //                    string booking = rdr["Booking"].ToString();
+        //                    string refno = rdr["RefNo"].ToString();
+        //                    string shipper = rdr["Shipper"].ToString();
+        //                    string dealer = rdr["Dealer"].ToString();
+        //                    string description = rdr["Description"].ToString();
+        //                    DateTime etd = (rdr["ETDDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETDDate"]);
+        //                    string ctnno = rdr["CTNNo"].ToString();
+        //                    string customerrefno = rdr["CustomerRefNo"].ToString();
+        //                    string classctn = rdr["ClassCTN"].ToString();
+        //                    string transportmode = rdr["TransportMode"].ToString();
+        //                    string loadingport = rdr["LoadingPort"].ToString();
+        //                    string destinationport = rdr["DestinationPort"].ToString();
+        //                    DateTime eta = (rdr["ETADate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETADate"]);
+        //                    DateTime deliverydate = (rdr["DeliveryDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["DeliveryDate"]);
+        //                    string fromlocation = rdr["FromLocation"].ToString();
+        //                    string tolocation = rdr["ToLocation"].ToString();
+        //                    string freightmode = rdr["FreightMode"].ToString();
+        //                    bool cargoinsurace = Convert.ToBoolean(rdr["CargoInsurace"]);
+        //                    bool ishasbl = Convert.ToBoolean(rdr["Released"]);
+
+        //                    xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+        //                    xml += "<item>";
+        //                    xml += "<bookingno>" + booking + "</bookingno>";
+        //                    xml += "<orderno>" + refno + "</orderno>";
+        //                    xml += "<shipper>" + shipper + "</shipper>";
+        //                    xml += "<dealer>" + dealer + "</dealer>";
+        //                    xml += "<notice>" + description + "</notice>";
+        //                    xml += "<etd>" + ((etd < DateTime.Now.AddYears(-30)) ? "" : etd.ToString("dd.MM.yyyy")) + "</etd>";
+        //                    xml += "<ctnno>" + ctnno + "</ctnno>";
+        //                    xml += "<cusrefno>" + customerrefno + "</cusrefno>";
+        //                    xml += "<classctn>" + (string.IsNullOrEmpty(classctn) ? "" : classctn.Replace("<", "")).Replace(">", "") + "</classctn>";
+        //                    xml += "<transportmode>" + transportmode + "</transportmode>";
+        //                    xml += "<blno>" + ((ishasbl) ? "YES" : "NO") + "</blno>";
+        //                    xml += "<loadingport>" + loadingport + "</loadingport>";
+        //                    xml += "<destinationport>" + destinationport + "</destinationport>";
+        //                    xml += "<eta>" + ((eta < DateTime.Now.AddYears(-30)) ? "" : eta.ToString("dd.MM.yyyy")) + "</eta>";
+        //                    xml += "<cargoinsurace>" + ((cargoinsurace) ? "YES" : "NO") + "</cargoinsurace>";
+        //                    xml += "<fromlocation>" + fromlocation + "</fromlocation>";
+        //                    xml += "<tolocation>" + tolocation + "</tolocation>";
+        //                    xml += "<doordelivery>" + ((deliverydate < DateTime.Now.AddYears(-30)) ? "" : deliverydate.ToString("dd.MM.yyyy")) + "</doordelivery>";
+        //                    xml += "<freightmode>" + freightmode + "</freightmode>";
+        //                    xml += "<status>" + status + "</status>";
+        //                    xml += "</item>";
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Log.Report(ex.Message);
+        //    }
+        //    return xml;
+        //}
         private string GetXML(string sID)
         {
             string xml = "";
             try
             {
-                string orderid = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(0, sID.Length - 1) : sID;
-                string status = (sID.EndsWith("I") || sID.EndsWith("U") || sID.EndsWith("D")) ? sID.Substring(sID.Length - 1, 1) : "I";
-                string storedProcName = "SelectOrderImportInfo";
-                using (DbCommand sprocCmd = defaultDB.GetStoredProcCommand(storedProcName))
-                {
-                    defaultDB.AddInParameter(sprocCmd, "OrderID", DbType.String, orderid);
-                    using (IDataReader rdr = defaultDB.ExecuteReader(sprocCmd))
-                    {
-                        while (rdr.Read())
-                        {
-                            string booking = rdr["Booking"].ToString();
-                            string refno = rdr["RefNo"].ToString();
-                            string shipper = rdr["Shipper"].ToString();
-                            string dealer = rdr["Dealer"].ToString();
-                            string description = rdr["Description"].ToString();
-                            DateTime etd = (rdr["ETDDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETDDate"]);
-                            string ctnno = rdr["CTNNo"].ToString();
-                            string customerrefno = rdr["CustomerRefNo"].ToString();
-                            string classctn = rdr["ClassCTN"].ToString();
-                            string transportmode = rdr["TransportMode"].ToString();
-                            string loadingport = rdr["LoadingPort"].ToString();
-                            string destinationport = rdr["DestinationPort"].ToString();
-                            DateTime eta = (rdr["ETADate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETADate"]);
-                            DateTime deliverydate = (rdr["DeliveryDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["DeliveryDate"]);
-                            string fromlocation = rdr["FromLocation"].ToString();
-                            string tolocation = rdr["ToLocation"].ToString();
-                            string freightmode = rdr["FreightMode"].ToString();
-                            bool cargoinsurace = Convert.ToBoolean(rdr["CargoInsurace"]);
-                            bool ishasbl = Convert.ToBoolean(rdr["Released"]);
+                string orderid = GetPartFromID(sID, "ORDERID");
+                string status = GetPartFromID(sID, "STATUS");
+                string refnoorder = GetPartFromID(sID, "REFNO");
 
-                            xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
-                            xml += "<item>";
-                            xml += "<bookingno>" + booking + "</bookingno>";
-                            xml += "<orderno>" + refno + "</orderno>";
-                            xml += "<shipper>" + shipper + "</shipper>";
-                            xml += "<dealer>" + dealer + "</dealer>";
-                            xml += "<notice>" + description + "</notice>";
-                            xml += "<etd>" + ((etd < DateTime.Now.AddYears(-30)) ? "" : etd.ToString("dd.MM.yyyy")) + "</etd>";
-                            xml += "<ctnno>" + ctnno + "</ctnno>";
-                            xml += "<cusrefno>" + customerrefno + "</cusrefno>";
-                            xml += "<classctn>" + (string.IsNullOrEmpty(classctn) ? "" : classctn.Replace("<", "")).Replace(">", "") + "</classctn>";
-                            xml += "<transportmode>" + transportmode + "</transportmode>";
-                            xml += "<blno>" + ((ishasbl) ? "YES" : "NO") + "</blno>";
-                            xml += "<loadingport>" + loadingport + "</loadingport>";
-                            xml += "<destinationport>" + destinationport + "</destinationport>";
-                            xml += "<eta>" + ((eta < DateTime.Now.AddYears(-30)) ? "" : eta.ToString("dd.MM.yyyy")) + "</eta>";
-                            xml += "<cargoinsurace>" + ((cargoinsurace) ? "YES" : "NO") + "</cargoinsurace>";
-                            xml += "<fromlocation>" + fromlocation + "</fromlocation>";
-                            xml += "<tolocation>" + tolocation + "</tolocation>";
-                            xml += "<doordelivery>" + ((deliverydate < DateTime.Now.AddYears(-30)) ? "" : deliverydate.ToString("dd.MM.yyyy")) + "</doordelivery>";
-                            xml += "<freightmode>" + freightmode + "</freightmode>";
-                            xml += "<status>" + status + "</status>";
-                            xml += "</item>";
+                if (status == "D")
+                {
+                    string sEmpty = "";
+                    xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+                    xml += "<item>";
+                    xml += "<bookingno>" + sEmpty + "</bookingno>";
+                    xml += "<orderno>" + refnoorder + "</orderno>";
+                    xml += "<shipper>" + sEmpty + "</shipper>";
+                    xml += "<dealer>" + sEmpty + "</dealer>";
+                    xml += "<notice>" + sEmpty + "</notice>";
+                    xml += "<etd>" + sEmpty + "</etd>";
+                    xml += "<ctnno>" + sEmpty + "</ctnno>";
+                    xml += "<cusrefno>" + sEmpty + "</cusrefno>";
+                    xml += "<classctn>" + sEmpty + "</classctn>";
+                    xml += "<transportmode>" + sEmpty + "</transportmode>";
+                    xml += "<blno>" + sEmpty + "</blno>";
+                    xml += "<loadingport>" + sEmpty + "</loadingport>";
+                    xml += "<destinationport>" + sEmpty + "</destinationport>";
+                    xml += "<eta>" + sEmpty + "</eta>";
+                    xml += "<cargoinsurace>" + sEmpty + "</cargoinsurace>";
+                    xml += "<fromlocation>" + sEmpty + "</fromlocation>";
+                    xml += "<tolocation>" + sEmpty + "</tolocation>";
+                    xml += "<doordelivery>" + sEmpty + "</doordelivery>";
+                    xml += "<freightmode>" + sEmpty + "</freightmode>";
+                    xml += "<status>" + status + "</status>";
+                    xml += "</item>";
+                }
+                else
+                {
+
+                    string storedProcName = "SelectOrderImportInfo";
+                    using (DbCommand sprocCmd = defaultDB.GetStoredProcCommand(storedProcName))
+                    {
+                        defaultDB.AddInParameter(sprocCmd, "OrderID", DbType.String, orderid);
+                        using (IDataReader rdr = defaultDB.ExecuteReader(sprocCmd))
+                        {
+                            while (rdr.Read())
+                            {
+                                string booking = rdr["Booking"].ToString();
+                                string refno = rdr["RefNo"].ToString();
+                                string shipper = rdr["Shipper"].ToString();
+                                string dealer = rdr["Dealer"].ToString();
+                                string description = rdr["Description"].ToString();
+                                DateTime etd = (rdr["ETDDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETDDate"]);
+                                string ctnno = rdr["CTNNo"].ToString();
+                                string customerrefno = rdr["CustomerRefNo"].ToString();
+                                string classctn = rdr["ClassCTN"].ToString();
+                                string transportmode = rdr["TransportMode"].ToString();
+                                string loadingport = rdr["LoadingPort"].ToString();
+                                string destinationport = rdr["DestinationPort"].ToString();
+                                DateTime eta = (rdr["ETADate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["ETADate"]);
+                                DateTime deliverydate = (rdr["DeliveryDate"] is DBNull) ? DateTime.Now.AddYears(-50) : Convert.ToDateTime(rdr["DeliveryDate"]);
+                                string fromlocation = rdr["FromLocation"].ToString();
+                                string tolocation = rdr["ToLocation"].ToString();
+                                string freightmode = rdr["FreightMode"].ToString();
+                                bool cargoinsurace = Convert.ToBoolean(rdr["CargoInsurace"]);
+                                bool ishasbl = Convert.ToBoolean(rdr["Released"]);
+
+                                xml += "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+                                xml += "<item>";
+                                xml += "<bookingno>" + booking + "</bookingno>";
+                                xml += "<orderno>" + refno + "</orderno>";
+                                xml += "<shipper>" + shipper + "</shipper>";
+                                xml += "<dealer>" + dealer + "</dealer>";
+                                xml += "<notice>" + description + "</notice>";
+                                xml += "<etd>" + ((etd < DateTime.Now.AddYears(-30)) ? "" : etd.ToString("dd.MM.yyyy")) + "</etd>";
+                                xml += "<ctnno>" + ctnno + "</ctnno>";
+                                xml += "<cusrefno>" + customerrefno + "</cusrefno>";
+                                xml += "<classctn>" + (string.IsNullOrEmpty(classctn) ? "" : classctn.Replace("<", "")).Replace(">", "") + "</classctn>";
+                                xml += "<transportmode>" + transportmode + "</transportmode>";
+                                xml += "<blno>" + ((ishasbl) ? "YES" : "NO") + "</blno>";
+                                xml += "<loadingport>" + loadingport + "</loadingport>";
+                                xml += "<destinationport>" + destinationport + "</destinationport>";
+                                xml += "<eta>" + ((eta < DateTime.Now.AddYears(-30)) ? "" : eta.ToString("dd.MM.yyyy")) + "</eta>";
+                                xml += "<cargoinsurace>" + ((cargoinsurace) ? "YES" : "NO") + "</cargoinsurace>";
+                                xml += "<fromlocation>" + fromlocation + "</fromlocation>";
+                                xml += "<tolocation>" + tolocation + "</tolocation>";
+                                xml += "<doordelivery>" + ((deliverydate < DateTime.Now.AddYears(-30)) ? "" : deliverydate.ToString("dd.MM.yyyy")) + "</doordelivery>";
+                                xml += "<freightmode>" + freightmode + "</freightmode>";
+                                xml += "<status>" + status + "</status>";
+                                xml += "</item>";
+                            }
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log.Report(ex.Message);
+                Log.Report(ex);
             }
             return xml;
         }
